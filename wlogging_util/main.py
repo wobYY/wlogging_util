@@ -52,7 +52,7 @@ LOGGER_CONFIG = {
         },
     },
     "filters": {
-        "non_module": {"()": "wlogging_util.index.WloggingUtil.FilterNonRootLoggers"},
+        "non_module": {"()": "wlogging_util.main.WloggingUtil.FilterNonRootLoggers"},
         "non_out": {"()": "wlogging_util.filters.FilterOutOUT"},
         "out_only": {"()": "wlogging_util.filters.FilterOutNonOUT"},
         "ipykernel": {"()": "wlogging_util.filters.AllowIpykernel"},

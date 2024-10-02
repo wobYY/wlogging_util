@@ -1,2 +1,8 @@
+# Ignore environment files
 .vscode/**
 .venv/**
+
+# Ignore package files
+**/**.egg-info/**
+**/__pycache__/**
+dist/**
