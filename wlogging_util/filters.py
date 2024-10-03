@@ -31,4 +31,4 @@ class AllowIpykernel(logging.Filter):
 
     def filter(self, record):
         # Allow ipykernel logs
-        return "ipykernel" in record.pathname.lower()
+        return "ipykernel" in str(record.pathname).lower()

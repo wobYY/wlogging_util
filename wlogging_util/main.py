@@ -1,4 +1,5 @@
 import atexit
+import json
 import logging
 import logging.config
 import logging.handlers
@@ -22,81 +23,6 @@ else:
 # If logs directory doesn't exist, create it
 LOGS_DIR = None
 LOGFILE_FILEPATH = None
-
-
-LOGGER_CONFIG = {
-    "version": 1,
-    "disable_existing_loggers": False,
-    "formatters": {
-        "plain": {
-            "format": "{message}",
-            "style": "{",
-        },
-        "simple": {
-            "format": "{asctime:<23s} - {levelname:^7s} - {module} - {message}",
-            "style": "{",
-        },
-        "json": {
-            "()": "wlogging_util.formatters.JSONFormatter",
-            "fmt_keys": {
-                "level": "levelname",
-                "timestamp": "timestamp",
-                "message": "message",
-                "logger": "name",
-                "pathname": "pathname",
-                "module": "module",
-                "function": "funcName",
-                "line": "lineno",
-                "thread_name": "threadName",
-            },
-        },
-    },
-    "filters": {
-        "non_module": {"()": "wlogging_util.main.WloggingUtil.FilterNonRootLoggers"},
-        "non_out": {"()": "wlogging_util.filters.FilterOutOUT"},
-        "out_only": {"()": "wlogging_util.filters.FilterOutNonOUT"},
-        "ipykernel": {"()": "wlogging_util.filters.AllowIpykernel"},
-    },
-    "handlers": {
-        "stdout": {
-            "class": "logging.StreamHandler",
-            "level": "WARNING",
-            "formatter": "simple",
-            "stream": "ext://sys.stdout",
-            "filters": ["non_module", "non_out", "ipykernel"],
-        },
-        "stdout_out": {
-            "class": "logging.StreamHandler",
-            "level": "OUT",
-            "formatter": "plain",
-            "stream": "ext://sys.stdout",
-            "filters": ["non_module", "out_only"],
-        },
-        "logfile": {
-            "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
-            "level": "DEBUG",
-            "formatter": "json",
-            "filename": LOGFILE_FILEPATH,
-            "filters": ["non_module", "non_out", "ipykernel"],
-            "maxBytes": LOG_FILESIZE_TO_KEEP * 1000000,
-            "backupCount": LOG_BACKUP_COUNT,
-            "encoding": "utf-8",
-        },
-        "queue_handler": {
-            "class": "logging.handlers.QueueHandler",
-            "handlers": [
-                "logfile",
-            ],
-            "respect_handler_level": True,
-        },
-    },
-    "loggers": {
-        "root": {
-            "level": "DEBUG",
-            "handlers": ["queue_handler", "stdout"],
-        }
-    },
-}
 
 
 def addLoggingLevel(levelName, levelNum, methodName=None):
@@ -158,7 +84,9 @@ class WloggingUtil:
         logfile_size: int = None,
         log_backup_count: int = None,
     ):
-        if not ROOT_DIR and not root_dir:  # noqa: F823
+        global ROOT_DIR, LOG_FILESIZE_TO_KEEP, LOG_BACKUP_COUNT, LOGFILE_FILEPATH
+
+        if not ROOT_DIR and not root_dir:
             raise ValueError(
                 "Root directory of the project must be provided as an argument."
             )
@@ -167,19 +95,97 @@ class WloggingUtil:
             ROOT_DIR = root_dir
 
         if logfile_size:
-            LOG_FILESIZE_TO_KEEP = logfile_size  # noqa: F841
+            LOG_FILESIZE_TO_KEEP = logfile_size
 
         if log_backup_count:
-            LOG_BACKUP_COUNT = log_backup_count  # noqa: F841
+            LOG_BACKUP_COUNT = log_backup_count
 
-        LOGS_DIR = os.path.join(ROOT_DIR, "./logs")
-        LOGFILE_FILEPATH = os.path.join(LOGS_DIR, "logs.log")  # noqa: F841
+        LOGS_DIR = os.path.join(ROOT_DIR, "logs")
+        LOGFILE_FILEPATH = os.path.join(LOGS_DIR, "logs.jsonl")
         if not os.path.exists(LOGS_DIR):
             os.makedirs(LOGS_DIR)
 
         self.logger = None
         self._level = level
-        LOGGER_CONFIG["handlers"]["stdout"]["level"] = level
+        print(LOGS_DIR)
+        print(LOGFILE_FILEPATH)
+        self.LOGGER_CONFIG = {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "plain": {
+                    "format": "{message}",
+                    "style": "{",
+                },
+                "simple": {
+                    "format": "{asctime:<23s} - {levelname:^7s} - {module} - {message}",
+                    "style": "{",
+                },
+                "json": {
+                    "()": "wlogging_util.formatters.JSONFormatter",
+                    "fmt_keys": {
+                        "level": "levelname",
+                        "timestamp": "timestamp",
+                        "message": "message",
+                        "logger": "name",
+                        "pathname": "pathname",
+                        "module": "module",
+                        "function": "funcName",
+                        "line": "lineno",
+                        "thread_name": "threadName",
+                    },
+                },
+            },
+            "filters": {
+                "non_module": {"()": "wlogging_util.main.FilterNonRootLoggers"},
+                "non_out": {"()": "wlogging_util.filters.FilterOutOUT"},
+                "out_only": {"()": "wlogging_util.filters.FilterOutNonOUT"},
+                "ipykernel": {"()": "wlogging_util.filters.AllowIpykernel"},
+            },
+            "handlers": {
+                "stdout": {
+                    "class": "logging.StreamHandler",
+                    "level": "WARNING",
+                    "formatter": "simple",
+                    "stream": "ext://sys.stdout",
+                    "filters": [
+                        "non_module",
+                        "ipykernel",
+                    ],  # ["non_module", "non_out", "ipykernel"],
+                },
+                "stdout_out": {
+                    "class": "logging.StreamHandler",
+                    "level": "OUT",
+                    "formatter": "plain",
+                    "stream": "ext://sys.stdout",
+                    "filters": [],  # ["non_module", "out_only"],
+                },
+                "logfile": {
+                    "class": "concurrent_log_handler.ConcurrentRotatingFileHandler",
+                    "level": "DEBUG",
+                    "formatter": "json",
+                    "filename": LOGFILE_FILEPATH,
+                    "filters": [],  # ["non_module", "non_out", "ipykernel"],
+                    "maxBytes": LOG_FILESIZE_TO_KEEP * 1000000,
+                    "backupCount": LOG_BACKUP_COUNT,
+                    "encoding": "utf-8",
+                },
+                "queue_handler": {
+                    "class": "logging.handlers.QueueHandler",
+                    "handlers": [
+                        "logfile",
+                    ],
+                    "respect_handler_level": True,
+                },
+            },
+            "loggers": {
+                "root": {
+                    "level": "DEBUG",
+                    "handlers": ["queue_handler", "stdout"],
+                }
+            },
+        }
+        self.LOGGER_CONFIG["handlers"]["stdout"]["level"] = level
 
         # We create a new logging level that's like a print statement
         # We set it higher than CRITICAL so that it always gets printed
@@ -203,27 +209,31 @@ class WloggingUtil:
         # We check if the stdout handler exists and adjust its level
         if self.logger and "stdout" in list(logging.getHandlerNames()):
             logging.getHandlerByName("stdout").setLevel(level)
-            logging.getHandlerByName("stdout_file").setLevel(level)
         else:
-            LOGGER_CONFIG["handlers"]["stdout"]["level"] = level
-            LOGGER_CONFIG["handlers"]["stdout_file"]["level"] = level
+            self.LOGGER_CONFIG["handlers"]["stdout"]["level"] = level
 
     @property
     def get_handlers(self):
         return list(logging.getHandlerNames())
 
-    def add_filter(self, filter_name: str, filter_class_path: dict):
-        LOGGER_CONFIG["filters"][filter_name] = {"()": filter_class_path}
+    @property
+    def get_handler_by_name(self, handler_name: str):
+        return logging.getHandlerByName(handler_name)
 
-    def remove_filter(self, filter_name: str):
-        del LOGGER_CONFIG["filters"][filter_name]
+    def add_filter(self, filter_name: str, filter_class_path: dict):
+        self.LOGGER_CONFIG["filters"][filter_name] = {"()": filter_class_path}
+
+    def add_handler(self, handler_name: str, handler_dict: dict):
+        self.LOGGER_CONFIG["handlers"][handler_name] = handler_dict
+        self.LOGGER_CONFIG["handlers][queue_handler"]["handlers"].append(handler_name)
 
     def get_logger(self, level: str = None):
         if level:
+            print(f"Levels: {level}")
             self.level = level
 
         # Configure the logger
-        logging.config.dictConfig(LOGGER_CONFIG)
+        logging.config.dictConfig(self.LOGGER_CONFIG)
 
         # Set it up so that the queue handler is started and stopped when the program starts and stops
         queue_handler = logging.getHandlerByName("queue_handler")
@@ -238,13 +248,20 @@ class WloggingUtil:
         # Return the logger
         return self.logger
 
-    class FilterNonRootLoggers(logging.Filter):
-        """Filter out loggers that are not from root."""
 
-        def __init__(self, name="wlogging_logger"):
-            super().__init__(name)
+class FilterNonRootLoggers(logging.Filter):
+    """Filter out loggers that are not from root."""
 
-        def filter(self, record):
-            # Filter out loggers that are not from the root directory
-            record.pathname = record.pathname.lower()
-            return ROOT_DIR in record.pathname and ".venv" not in record.pathname
+    def __init__(self, name="wlogging_logger"):
+        super().__init__(name)
+
+    def filter(self, record):
+        # Get the last part of the ROOT_DIR path (the project name)
+        project_name = os.path.basename(ROOT_DIR)
+        print(project_name)
+        print(record.pathname)
+        print(project_name in record.pathname)
+
+        # Filter out loggers that are not from the root directory
+        record.pathname = record.pathname.lower()
+        return project_name in record.pathname
